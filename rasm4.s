@@ -43,7 +43,6 @@ _start:/* begin basic LL program */
 
 
 addToList:	/* Add a new item to the end of the list*/
-	
 	push	{r4-r8, r10, r11}	@push to stack
 	push	{sp}
 	push	{lr}			@push link register
@@ -149,21 +148,12 @@ addFirstToList:	/* Add the first item to the list*/
 	pop	{r4-r8, r10, r11}	@pop
 	bx	lr			@ branch back
 
+
 printList:/* Iterate through the list and print the contents of each node */
-	/* pseudo
-	load head
-	load string at it->next
-	print string
-	load it-> = it->next->next
-	repeat until all 10 have been printed
-	*/
-
-
 	ldr	r4, [r4]		@ then iterate to next item
 	mov	r5, r4			@ copy address to r5
 	add	r5, #4			@ shift address to data section
 	mov	r0, r5			@ provide address of string to putstring
-@	ldr	r0, [r4, #4]		@ dereference pointer and skip to data in r0
 	bl	putstring		@ print data
 
 	ldr	r5, [r4]		@ dereference next pointer
@@ -172,7 +162,6 @@ printList:/* Iterate through the list and print the contents of each node */
 					@		else continue looping
 	b	printList		@ and continue printing
 	
-
 
 end:/* finish program and terminate */
 	mov	r0, #0			@status
