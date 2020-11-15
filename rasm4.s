@@ -12,7 +12,7 @@ ascPr:	.asciz	"Enter next string: "
 
 cZero:	.byte	48						@ 0
 iCount:	.word	0						@ count for loops
-szCls:	.asciz	"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"	@ clear screen
+szCls:	.asciz	"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"	@ clear screen
 
 /* Input */
 szIn1:	.asciz	"1"						@ check input
