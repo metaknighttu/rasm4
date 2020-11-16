@@ -14,7 +14,7 @@ cZero:	.byte	48						@ 0
 iCount:	.word	0						@ count for loops
 szCls:	.asciz	"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"	@ clear screen
 
-/* Input */
+/* Input options */
 szIn1:	.asciz	"1"						@ check input
 szIn2a:	.asciz	"2a"					@ check input
 szIn2b:	.asciz	"2b"					@ check input
@@ -25,7 +25,7 @@ szIn6:	.asciz	"6"						@ check input
 szIn7:	.asciz	"7"						@ check input
 
 /* MENU */
-ascM1:	.asciz	"                MASM4 TEXT EDITOR\n"
+ascM1:	.asciz	"                RASM4 TEXT EDITOR\n"
 ascM2:	.asciz	"        Data Structure Heap Memory Consumption: "		@ Num Bytes after ascM2
 ascM3:	.asciz	" bytes\n"
 ascM4:	.asciz	"        Number of Nodes: "								@ Num Nodes after ascM4
@@ -63,6 +63,7 @@ Menu:
 
 	/* convert mem to string and print with leading zeros */
 	ldr	r0, =mem		@ load mem
+	ldr	r0, [r0]		@ dereference
 	ldr	r1, =ascBuf		@ load buffer
 	bl	intasc32		@ convert
 
@@ -84,6 +85,7 @@ Menu:
 	bl	putstring		@ print
 
 	ldr	r0, =llSize		@ load llSize
+	ldr	r0, [r0]		@ dereference
 	ldr	r1, =ascBuf		@ load buffer
 	bl	intasc32		@ convert to asci
 
