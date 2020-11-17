@@ -13,6 +13,11 @@ ascPr:	.asciz	"Enter next string: "
 cZero:	.byte	48						@ 0
 iCount:	.word	0						@ count for loops
 szCls:	.asciz	"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"	@ clear screen
+szEnd:	.asciz	"\n\n"
+
+/* File I/O */
+errmsg:	.asciz "create failed"							@err message
+iFile:	.asciz "/home/pi/cs3b/rasm4/input.txt"		@file path
 
 /* Input options */
 szIn1:	.asciz	"1"						@ check input
@@ -47,6 +52,7 @@ ascM13:	.asciz	"<7> Quit\n\n"
 
  
 _start:	
+
 
 Menu:
 @	push	{lr}		@ push link register
@@ -142,7 +148,7 @@ getInput:
 	bl	string_equalsIgnoreCase		@ compare strings
 
 	cmp	r0, #1			@ check if true
-@	beq	option2A		@ break option 2a
+	beq	option2A		@ break option 2a
 	
 	/* option 2b */
 	ldr	r0, =ascBuf		@ load buffer
@@ -150,7 +156,7 @@ getInput:
 	bl	string_equalsIgnoreCase		@ compare strings
 
 	cmp	r0, #1			@ check if true
-@	beq	option2B		@ break option 2b
+	beq	option2B		@ break option 2b
 
 	/* option 3 */
 	ldr	r0, =ascBuf		@ load buffer
@@ -199,7 +205,77 @@ getInput:
 
 
 	/* begin basic LL program */
-	
+
+option2B:
+	/* OPEN (CREATE) FILE */
+    ldr	r0, =iFile
+    mov	r1, #0x42   	@ create R/W
+    mov	r2, #02  	 	@ = 600 octal (me)
+    mov	r7, #5    	  	@ open (create)
+    svc	0
+
+    cmp	r0, #-1     	@ file descriptor
+
+
+    mov  r4, r0      	@ save file_descriptor
+
+nextLineInput:
+
+	ldr	r1, =ascBuf + 26
+	mov	r0, #0
+	str	r0, [r1]
+
+/* read from file */
+	mov	r0, r4			@ file handle (stored from opening file)
+    ldr	r1, =ascBuf		@ move buffer to r1   NEED THIS TO ITERATE ONE BYTE AT A TIME WHILE ALSO ITERATING THROUGH FILE
+    mov	r2, #1			@ length to read
+    mov	r7, #3			@ read
+    svc	0
+
+readLoop:
+	@ if LF then break
+	ldrb	r5, [r1]		@ dereference in r5
+	cmp	r5, #10			@ check if the last byte entered was LF
+	beq	lineDone		@ break
+
+	cmp	r5, #0			@ check if end of file
+	beq	lineDone		@ break
+
+	mov	r0, r4			@ file handle (stored from opening file)
+    add	r1, #1			@ iterate through buffer
+    svc	0
+
+	b	readLoop		@ loop
+
+lineDone:
+	add	r1, #1			@ increment
+	mov	r3, #0			@ load null
+	str	r3, [r1]		@ store null to end of string in buffer
+
+
+	/* save string to list */
+	ldr	r0, =head		@ load head pointer
+	ldr	r0, [r0]		@ dereference pointer
+	cmp	r0, #0			@ if head -> NULL
+	bleq	addFirstToList		@ 	then add first node
+	blne	addToList		@		else add reg. node
+
+	cmp	r5, #0			@ check if end of file
+	beq	closeFile		@ go to close file
+
+	b	nextLineInput	@ break to next line input
+
+ /* CLOSE FILE */
+closeFile:
+    mov	r7, #6      	@ close
+    svc	0
+    mov	r0, r4      	@ return file_descriptor as error code
+ 
+	b 	_start			@ back to menu
+
+
+
+option2A:	
 	/* print input prompt */
 	ldr	r0, =ascPr		@ load string prompt address	
 	bl	putstring		@ print
@@ -225,11 +301,13 @@ getInput:
 	b	printList		@		and print list
 
 
+
 addToList:	/* Add a new item to the end of the list*/
 	push	{r4-r8, r10, r11}	@push to stack
 	push	{sp}
 	push	{lr}			@push link register
 	/* Find length of memory block to allocate */
+
 	ldr	r0, =ascBuf		@ load new string
 	bl	String_Length		@ find stringlength in bytes
 	mov	r1, r0			@ r1 = strLen
@@ -333,6 +411,8 @@ addFirstToList:	/* Add the first item to the list*/
 
 
 printList:/* Iterate through the list and print the contents of each node */
+	ldr	r4, =head		@ load head
+printLoop:
 	ldr	r4, [r4]		@ then iterate to next item
 	mov	r5, r4			@ copy address to r5
 	add	r5, #4			@ shift address to data section
@@ -340,12 +420,18 @@ printList:/* Iterate through the list and print the contents of each node */
 	bl	putstring		@ print data
 
 	ldr	r5, [r4]		@ dereference next pointer
-	cmp	r5, #0			@ if next->NULL
-	beq	end			@	then we're finished
-					@		else continue looping
-	b	printList		@ and continue printing
 
-	
+	cmp	r5, #0			@ if next->NULL
+	beq	pause			@	then we're finished
+					@		else continue looping
+	b	printLoop		@ and continue printing
+
+pause:
+	ldr	r0, =ascBuf		@ load dummy
+	mov	r1, #KBSIZE		@ kbsize
+	bl getstring		@ pause
+	b	_start
+
 leadingZeros:/* loop for leading zeroes */
 
 	push	{lr}		@ push link register
@@ -362,9 +448,12 @@ leadingZeros:/* loop for leading zeroes */
 
 
 end:/* finish program and terminate */
-	mov	r0, #0			@status
-	mov	r7, #1			@service code
-	svc	0			@service call to linux
+	ldr	r0, =szEnd		@ load newlines
+	bl putstring		@ print
+	
+	mov	r0, #0			@ status
+	mov	r7, #1			@ service code
+	svc	0				@ service call to linux
 	
 	.end
 
