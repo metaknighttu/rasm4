@@ -18,7 +18,7 @@ szEnd:	.asciz	"\n\n"
 /* File I/O */
 errmsg:	.asciz "create failed"							@err message
 iFile:	.asciz "/home/pi/cs3b/rasm4/input.txt"		@file path
-
+oFile: .asciz "/home/pi/cs3b/rasm4/output.txt"		@file path
 /* Input options */
 szIn1:	.asciz	"1"						@ check input
 szIn2a:	.asciz	"2a"					@ check input
@@ -189,7 +189,7 @@ beq	_start
 	bl	string_equalsIgnoreCase		@ compare strings
 
 	cmp	r0, #1			@ check if true
-@	beq	option6			@ option 6
+	beq	saveFile			@ option 6
 
 	/* option 7 */
 	ldr	r0, =ascBuf		@ load buffer
@@ -207,6 +207,59 @@ beq	_start
 
 	/* begin basic LL program */
 
+saveFile:/* Iterate through the list and print the contents of each node */
+	/* OPEN (CREATE) FILE */
+         ldr  r0, =oFile
+         mov  r1, #0x42   @ create R/W
+         mov  r2, #0644    @ 0644 = user permissions (MODE)
+         mov  r7, #5      @ open (create)
+         svc  0
+
+         cmp  r0, #-1     @ file descriptor
+        @ beq  err
+
+         mov  r8, r0      @ save file_descriptor
+
+	ldr	r4, =head		@ load head
+saveLoop:
+	/* next data segment */
+
+	ldr	r4, [r4]		@ then iterate to next item
+	mov	r5, r4			@ copy address to r5
+	add	r5, #4			@ shift address to data section
+
+		/* length */
+		mov	r0, r4			@ load address of node to r0
+		add	r0, #4			@ change address in r0 to start at string
+		bl	string_length	@ get length of string
+		mov	r2, r0			@ move length to r2
+
+	/* save */
+	mov  r0, r8      @ file_descriptor
+    mov  r1, r5 	@ start of data
+@    mov  r2, #2      @ length from read  first 2 chars
+    mov  r7, #4      @ write
+    svc  0
+
+	ldr	r5, [r4]		@ dereference next pointer
+
+	cmp	r5, #0			@ if next->NULL
+	beq	closeFile			@	then we're finished
+					@		else continue looping
+	b	saveLoop		@ and continue printing
+@  ///////////
+@  /* WRITE TO FILE */
+@          mov  r0, r4      @ file_descriptor
+@          ldr  r1, =output @ address of buffer
+@          mov  r2, #15      @ length from read
+@          mov  r7, #4      @ write
+@          svc  0
+
+@  /* CLOSE FILE */
+@          mov  r7, #6      @ close
+@          svc  0
+@          mov  r0, r4      @ return file_descriptor as error code
+@ /////////
 option2B:
 	/* OPEN (CREATE) FILE */
     ldr	r0, =iFile
