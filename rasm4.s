@@ -17,7 +17,7 @@ szEnd:	.asciz	"\n\n"
 
 /* File I/O */
 errmsg:	.asciz "create failed"							@err message
-iFile:	.asciz "/~/cs3b/rasm4/input.txt"		@file path
+iFile:	.asciz "/home/pi/cs3b/rasm4/input.txt"		@file path
 
 /* Input options */
 szIn1:	.asciz	"1"						@ check input
@@ -74,11 +74,11 @@ Menu:
 	bl	intasc32		@ convert
 
 	ldr	r0, =ascBuf		@ load buffer to r0
-	bl	String_Length		@ get string length
+	bl	String_Length	@ get string length
 
 	mov	r1, r0			@ move to r2
 	cmp	r1, #8			@ check length
-	bllt	leadingZeros		@ jump to leading 0s
+	bllt	leadingZeros	@ jump to leading 0s
 
 	ldr	r0, =ascBuf		@ Re-load string
 	bl 	putstring		@ print
@@ -172,7 +172,7 @@ getInput:
 	bl	string_equalsIgnoreCase		@ compare strings
 
 	cmp	r0, #1			@ check if true
-@	beq	option4			@ option4
+@	beq	Option4			@ option4
 
 	/* option 5 */
 	ldr	r0, =ascBuf		@ load buffer
@@ -200,24 +200,24 @@ getInput:
 
 	b	getInput		@ if no options were met
 
-@	pop	{lr}			@ pop link register
-@	bx	lr			@ break out
+@	pop		{lr}		@ pop link register
+@	bx	lr				@ break out
 
 
+	/* begin basic LL program */
 
-//////////////////////////////////////////////////////////////////////////////////
 option2B:
 	/* OPEN (CREATE) FILE */
-	ldr	r0, =iFile
-        mov     r1, #0101               @ flags:write only, create if nonexistant
-        mov     r2, #0644               @ file mode -rw-r--r--
-	mov	r7, #5    	  	@ open (create)
-	svc	0
+    ldr	r0, =iFile
+    mov	r1, #0x42   	@ create R/W
+    mov	r2, #02  	 	@ = 600 octal (me)
+    mov	r7, #5    	  	@ open (create)
+    svc	0
 
-	cmp	r0, #-1     		@ file descriptor
+    cmp	r0, #-1     	@ file descriptor
 
 
-	mov  r4, r0      		@ save file_descriptor
+    mov  r4, r0      	@ save file_descriptor
 
 nextLineInput:
 
@@ -227,10 +227,10 @@ nextLineInput:
 
 /* read from file */
 	mov	r0, r4			@ file handle (stored from opening file)
-	ldr	r1, =ascBuf		@ move buffer to r1   NEED THIS TO ITERATE ONE BYTE AT A TIME WHILE ALSO ITERATING THROUGH FILE
-	mov	r2, #1			@ length to read
-	mov	r7, #3			@ read
-	svc	0
+    ldr	r1, =ascBuf		@ move buffer to r1   NEED THIS TO ITERATE ONE BYTE AT A TIME WHILE ALSO ITERATING THROUGH FILE
+    mov	r2, #1			@ length to read
+    mov	r7, #3			@ read
+    svc	0
 
 readLoop:
 	@ if LF then break
@@ -242,8 +242,8 @@ readLoop:
 	beq	lineDone		@ break
 
 	mov	r0, r4			@ file handle (stored from opening file)
-	add	r1, #1			@ iterate through buffer
-	svc	0
+    add	r1, #1			@ iterate through buffer
+    svc	0
 
 	b	readLoop		@ loop
 
@@ -258,24 +258,23 @@ lineDone:
 	ldr	r0, [r0]		@ dereference pointer
 	cmp	r0, #0			@ if head -> NULL
 	bleq	addFirstToList		@ 	then add first node
-	blne	addNextToList		@		else add reg. node
+	blne	addToList		@		else add reg. node
 
 	cmp	r5, #0			@ check if end of file
 	beq	closeFile		@ go to close file
 
-	b	nextLineInput		@ break to next line input
+	b	nextLineInput	@ break to next line input
 
  /* CLOSE FILE */
 closeFile:
-	mov	r7, #6      		@ close
-	svc	0
-	mov	r0, r4      		@ return file_descriptor as error code
+    mov	r7, #6      	@ close
+    svc	0
+    mov	r0, r4      	@ return file_descriptor as error code
  
 	b 	_start			@ back to menu
-//////////////////////////////////////////////////////////////////////////////////
 
 
-//////////////////////////////////////////////////////////////////////////////////
+
 option2A:	
 	/* print input prompt */
 	ldr	r0, =ascPr		@ load string prompt address	
@@ -291,7 +290,7 @@ option2A:
 	ldr	r0, [r0]		@ dereference pointer
 	cmp	r0, #0			@ if head -> NULL
 	bleq	addFirstToList		@ 	then add first node
-	blne	addNextToList		@		else add reg. node
+	blne	addToList		@		else add reg. node
 
 	/* End program if size = 10, else keep adding  */
 	ldr	r0, =llSize		@ load address of llSize
@@ -300,10 +299,7 @@ option2A:
 	bne	_start			@	then keep looping
 	ldr	r4, =head		@ 		else load head into r4
 	b	printList		@		and print list
-//////////////////////////////////////////////////////////////////////////////////
 
-
-//////////////////////////////////////////////////////////////////////////////////
 delNode:/* Fed an index, remove that node, relink the list, and free the memory */
 	push	{r4-r8, r10, r11}	@ push AAPCS
 	push	{sp}                    @ push stack pointer
@@ -403,24 +399,11 @@ endGetNode:/* Restore registers and branch back to function call */
 ///////////////////////////////////////////////////////////////////////////////
 
 
-////////////////////////////////////////////////////////////////////////////////*
-//addToList:/* Add a node *
-/*
+addToList:	/* Add a new item to the end of the list*/
 	push	{r4-r8, r10, r11}	@push to stack
 	push	{sp}
 	push	{lr}			@push link register
-
-	ldr	r0, =head		@ load head pointer
-	ldr	r0, [r0]		@ dereference pointer
-	cmp	r0, #0			@ if head -> NULL
-	bleq	addFirstToList		@ 	then add first node
-	blne	addToList		@		else add reg. node
-*/
-addNextToList:	/* Add a new item to the end of the list*/
 	/* Find length of memory block to allocate */
-	push	{r4-r8, r10, r11}	@push to stack
-	push	{sp}
-	push	{lr}			@push link register
 
 	ldr	r0, =ascBuf		@ load new string
 	bl	String_Length		@ find stringlength in bytes
@@ -469,12 +452,13 @@ addNextToList:	/* Add a new item to the end of the list*/
 	pop	{r4-r8, r10, r11}	@pop
 	bx	lr			@ branch back
 
+
 addFirstToList:	/* Add the first item to the list*/
 	/* Find length of memory block to allocate */
 	push	{r4-r8, r10, r11}	@push to stack
 	push	{sp}
 	push	{lr}			@push link register
-
+	
 	ldr	r0, =ascBuf		@ load new string
 	bl	String_Length		@ find stringlength in bytes
 	mov	r1, r0			@ r1 = strLen
@@ -513,6 +497,7 @@ addFirstToList:	/* Add the first item to the list*/
 
 	/* Increment size of list */
 	ldr	r5, =llSize		@ load llSize address
+@	ldr	r6, [r5]		@ dereference llSize
 	mov	r6, #1			@ size++
 	str	r6, [r5]		@ store result into llSize
 
@@ -520,12 +505,11 @@ addFirstToList:	/* Add the first item to the list*/
 	pop	{sp}			@stack pointer
 	pop	{r4-r8, r10, r11}	@pop
 	bx	lr			@ branch back
-//////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////
+
 printList:/* Iterate through the list and print the contents of each node */
 	ldr	r4, =head		@ load head
-printLoop:/* For loop jump point */
+printLoop:
 	ldr	r4, [r4]		@ then iterate to next item
 	mov	r5, r4			@ copy address to r5
 	add	r5, #4			@ shift address to data section
@@ -539,55 +523,61 @@ printLoop:/* For loop jump point */
 					@		else continue looping
 	b	printLoop		@ and continue printing
 
-pause: /* Dummy getstring to pause the output */
+pause:
 	ldr	r0, =ascBuf		@ load dummy
 	mov	r1, #KBSIZE		@ kbsize
-	bl getstring			@ pause
+	bl getstring		@ pause
 	b	_start
-//////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////
 leadingZeros:/* loop for leading zeroes */
 
-	push	{lr}			@ push link register
+	push	{lr}		@ push link register
 
-	ldr r0, =cZero			@ character '0'
+	ldr r0, =cZero		@ character '0'
 	bl	putch			@ print char '0'
 
 	add	r1, #1			@ increment
 	cmp	r1, #8			@ check leading zeros
-	bllt	leadingZeros		@ loop
+	bllt	leadingZeros	@ loop
 	
-	pop 	{lr}			@ pop link register
-	bx	lr			@ break out
-//////////////////////////////////////////////////////////////////////////////////
+	pop 	{lr}		@ pop link register
+	bx	lr				@ break out
 
-//////////////////////////////////////////////////////////////////////////////////
+
 end:/* finish program and terminate */
 	ldr	r0, =szEnd		@ load newlines
-	bl putstring			@ print
+	bl putstring		@ print
 	
 	mov	r0, #0			@ status
 	mov	r7, #1			@ service code
-	svc	0			@ service call to linux
+	svc	0				@ service call to linux
 	
 	.end
-//////////////////////////////////////////////////////////////////////////////////
+
 /*
 Branches we need:
 Load from file
 	Read line from file
 		addToList
+
 Read from keyboard
 	addToList
+
 printList
+
 deleteAtIndex
+
 editAtIndex
+
 	nod@index-1, save next
 	node@index, save next address
+
    	deleteAtIndex
   	addToList
+
 findString
 	iterate through list, comparing data to input string
 	print each match
+
+
 */
