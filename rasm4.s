@@ -8,7 +8,7 @@ tail:	.word	0
 llSize:	.word	0
 mem:	.word	0
 ascPr:	.asciz	"Enter next string: "
-
+ascDel: .asciz 	"Enter Index to delete: "
 
 cZero:	.byte	48						@ 0
 iCount:	.word	0						@ count for loops
@@ -162,9 +162,10 @@ getInput:
 	ldr	r0, =ascBuf		@ load buffer
 	ldr	r1, =szIn3		@ load string 3
 	bl	string_equalsIgnoreCase		@ compare strings
-
+cmp	r2, #4
+beq	_start
 	cmp	r0, #1			@ check if true
-@	beq	option3			@ break option 3
+	beq	delNode			@ break option 3
 
 	/* option 4 */
 	ldr	r0, =ascBuf		@ load buffer
@@ -172,7 +173,7 @@ getInput:
 	bl	string_equalsIgnoreCase		@ compare strings
 
 	cmp	r0, #1			@ check if true
-@	beq	option4			@ option4
+	beq	replaceNode			@ option4
 
 	/* option 5 */
 	ldr	r0, =ascBuf		@ load buffer
@@ -285,6 +286,14 @@ option2A:
 	mov	r1, #KBSIZE		@ load string buffer size
 	bl	getstring		@ call getstring
 
+	/* add 0a to end of ascbuf */
+	bl	string_length	@ get length
+	ldr r1, =ascBuf		@ load string to r1
+	add	r1, r0			@ go to end of string
+	mov	r0, #10			@ put 0x0a (enter) to r0
+	strb	r0, [r1]	@ store [cr] to end of ascBuf
+	ldr	r0, =ascBuf		@ put ascBuf back to r0
+
 	/* save string to list */
 	ldr	r0, =head		@ load head pointer
 	ldr	r0, [r0]		@ dereference pointer
@@ -300,6 +309,173 @@ option2A:
 	ldr	r4, =head		@ 		else load head into r4
 	b	printList		@		and print list
 
+delNode:/* Fed an index, remove that node, relink the list, and free the memory */
+
+ 	push	{r4-r8, r10, r11}	@ push AAPCS
+ 	push	{sp}                    @ push stack pointer
+ 	push	{lr}			@ push link register
+
+         /* Print deletion prompt and get the index to delete from */
+ 	ldr	r0, =ascDel		@ load delete prompt
+ 	bl	putstring		@ print
+    ldr     r0, =ascBuf             @ load buffer 
+    mov     r1, #KBSIZE             @ load buffer size
+    bl      getstring               @ get index from user
+    bl      ascint32                @ convert to an int
+
+    bl	getNode			@ call getNode helper function
+	
+ 	mov	r8, r0			@ move address into r8
+	mov	r7, r0			@ save for replacenode function ////////////////
+ 	ldr	r9, [r8]		@ dereference for next node
+
+@ 	/* find string's length */
+ 	mov	r0, r8			@ load string addr so we can see its length
+	
+ 	add	r0, #4
+
+ 	bl	string_length		@ find stringlength in bytes
+ 	mov	r1, r0			@ r1 = strLen
+ 	mov	r0, #1			@ only 1 unit to be calloc'd
+ 	add	r1, r1, #5		@ add a word+NULL to strLen
+
+ 	/* remove from consumed memory */
+ 	mov	r4, r1			@ copy memconsumed to another register
+ 	ldr	r5, =mem		@ load mem address
+ 	ldr	r6, [r5]		@ dereference mem
+ 	sub	r6, r6, r4		@ add current memory to new memory
+ 	str	r6, [r5]		@ store result into mem
+
+ 	/* delete node and relink the list */
+ 	mov	r0, r9			@ load dereferenced node address 	ADDRESS TO BE DELETED
+
+	ldr	r9, [r9]		@ dereference? maybe this is a bad move
+ 	str	r9, [r8]		@ store next node address to relink list
+
+ 	bl	free			@ free the memory, deleting the node
+
+ 	/* Decrement size of list */
+ 	ldr	r5, =llSize		@ load llSize address
+ 	ldr	r6, [r5]		@ dereference llSize
+ 	sub	r6, #1			@ size--
+ 	str	r6, [r5]		@ store result into llSize
+
+	mov	r0, r7			@ for replace node - should be address before the one to be replaced	
+ 	mov	r1, r9			@ for replace node - should be address of next node
+	
+	pop	{lr}			@ pop link register
+ 	pop	{sp}			@ pop stack pointer
+ 	pop	{r4-r8, r10, r11}	@ pop AAPCS
+	mov	r2, #4
+ 	bx	lr	                @ branch back to function call 
+@ /////////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////////
+replaceNode:/* calls delete and add node in one spot to replace a node */
+	push	{r4-r8, r10, r11}	@ push AAPCS
+	push	{sp}                    @ push stack pointer
+	push	{lr}			@ push link register
+
+	/* delete node and save previous node's [next] pointer */
+	bl	delNode			@ run delnode
+	mov	r7, r0			@ save address of previous node to r8
+	mov	r8, r1			@ save address of current->next
+
+	/* get input string  */
+	ldr	r0, =ascPr		@ load string prompt address	
+	bl	putstring		@ print
+
+	ldr	r0, =ascBuf		@ load string bufer address
+	mov	r1, #KBSIZE		@ load string buffer size
+	bl	getstring		@ call getstring
+
+	@ /* add 0a to end of ascbuf */
+	@ bl	string_length	@ get length
+	@ ldr r1, =ascBuf		@ load string to r1
+	@ add	r1, r0			@ go to end of string
+	@ mov	r0, #10			@ put 0x0a (enter) to r0
+	@ strb	r0, [r1]	@ store [cr] to end of ascBuf
+	@ ldr	r0, =ascBuf		@ put ascBuf back to r0
+
+
+	ldr	r0, =ascBuf		@ load new string
+	bl	String_Length	@ find stringlength in bytes
+	mov	r1, r0			@ r1 = strLen
+	mov	r0, #1			@ only 1 unit to be calloc'd
+	add	r1, r1, #5		@ add a word+NULL to strLen
+
+	/* accumulate consumed memory */
+	mov	r4, r1			@ copy memconsumed to another register
+	ldr	r5, =mem		@ load mem address
+	ldr	r6, [r5]		@ dereference mem
+	add	r6, r6, r4		@ add current memory to new memory
+	str	r6, [r5]		@ store result into mem
+
+	push	{r4-r8, r10, r11}	@push to stack
+	push	{sp}
+	push	{lr}			@push link register
+	bl	calloc			@ allocate a block of length strLen+word+NULL
+					@r0 = addr of calloced block
+	pop	{lr}			@pop link register
+	pop	{sp}			@stack pointer
+	pop	{r4-r8, r10, r11}	@pop
+
+
+	 /* dereference tail->next, then save newnode into tail->next & tail */
+	 mov	r1, r7			@ previous nodes 'next' pointer
+	 str	r0, [r1]		@ save calloc'd address into previous->next
+
+	 mov	r1, r8		@ load address of tail pointer
+	 str	r1, [r0]		@ save calloc'd address into tail
+
+	/* Copy string into data section of memory block */
+	ldr	r0, =ascBuf		@ load address of last element
+	mov	r1, r8			@ previous->next
+	bl	listStrCpy		@ call helper function to copy the data
+
+	/* Increment size of list */
+	ldr	r5, =llSize		@ load llSize address
+	ldr	r6, [r5]		@ dereference llSize
+	add	r6, #1			@ size++
+	str	r6, [r5]		@ store result into llSize
+
+
+	pop	{lr}			@ pop link register
+	pop	{sp}			@ pop stack pointer
+	pop	{r4-r8, r10, r11}	@ pop AAPCS
+	bx	lr	                @ branch back to function call
+/////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+getNode:/* r0 = index. returns node address in r0.*/
+	push	{r4-r8, r10, r11}	@ push AAPCS
+	push	{sp}                    @ push stack pointer
+	push	{lr}			@ push link register
+
+        /* Find the string and get its length */
+        mov     r4, r0                  @ store dest index
+        mov     r5, #1                  @ i = 1
+        ldr     r6, =head               @ load head pointer
+
+	cmp	r4, #1			@ if index = first item
+	moveq	r0, r6			@ 	move head into r0 and end function
+	beq	endGetNode		@		else continute to iteration loop
+
+getNodeLoop:/* Loop to iterate through list */
+
+        ldr     r6, [r6]                @ dereference (move 1 node down the list)
+        add     r5, #1                  @ i++
+        cmp     r4, r5                  @ if i != index
+		bne     getNodeLoop             @       then keep iterating down the list
+        mov     r0, r6                  @               else we have the item and we 
+                                        @               return it in r0
+endGetNode:/* Restore registers and branch back to function call */
+	pop	{lr}			@ pop link register
+	pop	{sp}			@ pop stack pointer
+	pop	{r4-r8, r10, r11}	@ pop AAPCS
+	bx	lr	                @ branch back to function call
+///////////////////////////////////////////////////////////////////////////////
 
 
 addToList:	/* Add a new item to the end of the list*/
@@ -483,4 +659,7 @@ findString
 	print each match
 
 
+
+
+2A ISN"T WORKING QUITE RIGHT
 */
