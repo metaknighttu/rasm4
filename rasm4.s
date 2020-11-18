@@ -8,7 +8,7 @@ tail:	.word	0
 llSize:	.word	0
 mem:	.word	0
 ascPr:	.asciz	"Enter next string: "
-
+ascDel: .asciz 	"Enter Index to delete: "
 
 cZero:	.byte	48						@ 0
 iCount:	.word	0						@ count for loops
@@ -17,7 +17,7 @@ szEnd:	.asciz	"\n\n"
 
 /* File I/O */
 errmsg:	.asciz "create failed"							@err message
-iFile:	.asciz "/home/pi/cs3b/rasm4/input.txt"		@file path
+iFile:	.asciz "/~/cs3b/rasm4/input.txt"		@file path
 
 /* Input options */
 szIn1:	.asciz	"1"						@ check input
@@ -209,8 +209,8 @@ getInput:
 option2B:
 	/* OPEN (CREATE) FILE */
 	ldr	r0, =iFile
-	mov	r1, #0x42   		@ create R/W
-	mov	r2, #02  	 	@ = 600 octal (me)
+        mov     r1, #0101               @ flags:write only, create if nonexistant
+        mov     r2, #0644               @ file mode -rw-r--r--
 	mov	r7, #5    	  	@ open (create)
 	svc	0
 
@@ -254,7 +254,11 @@ lineDone:
 
 
 	/* save string to list */
-	bl	addToList		@ add the ascBuf string to the list
+	ldr	r0, =head		@ load head pointer
+	ldr	r0, [r0]		@ dereference pointer
+	cmp	r0, #0			@ if head -> NULL
+	bleq	addFirstToList		@ 	then add first node
+	blne	addNextToList		@		else add reg. node
 
 	cmp	r5, #0			@ check if end of file
 	beq	closeFile		@ go to close file
@@ -312,6 +316,11 @@ delNode:/* Fed an index, remove that node, relink the list, and free the memory 
         bl	getNode			@ call getNode helper function
 
 	mov	r8, r0			@ move address into r8
+	ldr	r9, [r8]		@ dereference for next node
+
+	/* find string's length */
+	ldr	r10, [r9, #4]		@ find string for purposes
+	mov	r0, r10			@ load string addr so we can see its length
 
 	bl	String_Length		@ find stringlength in bytes
 	mov	r1, r0			@ r1 = strLen
@@ -325,6 +334,12 @@ delNode:/* Fed an index, remove that node, relink the list, and free the memory 
 	sub	r6, r6, r4		@ add current memory to new memory
 	str	r6, [r5]		@ store result into mem
 
+	/* delete node and relink the list */
+	ldr	r9, [r9]		@ dereference? maybe this is a bad move
+	str	r9, [r8]		@ store next node address to relink list
+
+	mov	r0, r9			@ load dereferenced node address
+	bl	free			@ free the memory, deleting the node
 
 	/* Decrement size of list */
 	ldr	r5, =llSize		@ load llSize address
@@ -353,6 +368,147 @@ replaceNode:/* calls delete and add node in one spot to replace a node */
 	bx	lr	                @ branch back to function call
 /////////////////////////////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////////////////////////////
+getNode:/* r0 = index. returns node address in r0.*/
+	push	{r4-r8, r10, r11}	@ push AAPCS
+	push	{sp}                    @ push stack pointer
+	push	{lr}			@ push link register
+
+        /* Find the string and get its length */
+        mov     r4, r0                  @ store dest index
+        mov     r5, #1                  @ i = 1
+        ldr     r6, =head               @ load head pointer
+
+	cmp	r4, #1			@ if index = first item
+	moveq	r0, r6			@ 	move head into r0 and end function
+	beq	endGetNode		@		else continute to iteration loop
+
+getNodeLoop:/* Loop to iterate through list */
+
+        ldr     r6, [r6]                @ dereference (move 1 node down the list)
+        add     r5, #1                  @ i++
+        cmp     r4, r5                  @ if i != index
+        bne     getNodeLoop             @       then keep iterating down the list
+        mov     r0, r6                  @               else we have the item and we 
+                                        @               return it in r0
+endGetNode:/* Restore registers and branch back to function call */
+	pop	{lr}			@ pop link register
+	pop	{sp}			@ pop stack pointer
+	pop	{r4-r8, r10, r11}	@ pop AAPCS
+	bx	lr	                @ branch back to function call
+///////////////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////////////
+addToList:/* Add a node */
+	push	{r4-r8, r10, r11}	@push to stack
+	push	{sp}
+	push	{lr}			@push link register
+
+	ldr	r0, =head		@ load head pointer
+	ldr	r0, [r0]		@ dereference pointer
+	cmp	r0, #0			@ if head -> NULL
+	bleq	addFirstToList		@ 	then add first node
+	blne	addToList		@		else add reg. node
+
+addNextToList:	/* Add a new item to the end of the list*/
+	/* Find length of memory block to allocate */
+	ldr	r0, =ascBuf		@ load new string
+	bl	String_Length		@ find stringlength in bytes
+	mov	r1, r0			@ r1 = strLen
+	mov	r0, #1			@ only 1 unit to be calloc'd
+	add	r1, r1, #5		@ add a word+NULL to strLen
+
+	/* accumulate consumed memory */
+	mov	r4, r1			@ copy memconsumed to another register
+	ldr	r5, =mem		@ load mem address
+	ldr	r6, [r5]		@ dereference mem
+	add	r6, r6, r4		@ add current memory to new memory
+	str	r6, [r5]		@ store result into mem
+
+	push	{r4-r8, r10, r11}	@push to stack
+	push	{sp}
+	push	{lr}			@push link register
+	bl	calloc			@ allocate a block of length strLen+word+NULL
+					@r0 = addr of calloced block
+	pop	{lr}			@pop link register
+	pop	{sp}			@stack pointer
+	pop	{r4-r8, r10, r11}	@pop
+
+	/* dereference tail->next, then save newnode into tail->next & tail */
+	ldr	r1, =tail		@ load address of tail pointer
+	ldr	r1, [r1]		@ dereference for next
+	str	r0, [r1]		@ save calloc'd address into tail->next
+
+	ldr	r1, =tail		@ load address of tail pointer
+	str	r0, [r1]		@ save calloc'd address into tail
+
+	/* Copy string into data section of memory block */
+	ldr	r0, =ascBuf		@ load address of last element
+	ldr	r1, =tail		@ load address of new string
+	ldr	r1, [r1]		@ dereference
+	bl	listStrCpy		@ call helper function to copy the data
+
+	/* Increment size of list */
+	ldr	r5, =llSize		@ load llSize address
+	ldr	r6, [r5]		@ dereference llSize
+	add	r6, #1			@ size++
+	str	r6, [r5]		@ store result into llSize
+
+	pop	{lr}			@pop link register
+	pop	{sp}			@stack pointer
+	pop	{r4-r8, r10, r11}	@pop
+	bx	lr			@ branch back
+
+addFirstToList:	/* Add the first item to the list*/
+	/* Find length of memory block to allocate */
+
+	ldr	r0, =ascBuf		@ load new string
+	bl	String_Length		@ find stringlength in bytes
+	mov	r1, r0			@ r1 = strLen
+	mov	r0, #1			@ only 1 unit to be calloc'd
+	add	r1, r1, #5		@ add a word+NULL to strLen
+
+	/* accumulate consumed memory */
+	mov	r4, r1			@ copy memconsumed to another register
+	ldr	r5, =mem		@ load mem address
+	ldr	r6, [r5]		@ dereference mem
+	add	r6, r6, r4		@ add current memory to new memory
+	str	r6, [r5]		@ store result into mem
+
+
+	push	{r4-r8, r10, r11}	@push to stack
+	push	{sp}
+	push	{lr}			@push link register
+	bl	calloc			@ allocate a block of length strLen+word+NULL
+					@r0 = addr of calloced block
+	pop	{lr}			@pop link register
+	pop	{sp}			@stack pointer
+	pop	{r4-r8, r10, r11}	@pop
+
+
+	/* Link head and tail to the first node */
+	ldr	r1, =head		@ load address of head pointer
+	str	r0, [r1]		@ save calloc'd address into head
+	ldr	r1, =tail		@ load address of tail pointer
+	str	r0, [r1]		@ save calloc'd address into tail
+
+	/* Copy string into data section of memory block */
+	ldr	r0, =ascBuf		@ load address of last element
+	ldr	r1, =tail		@ load address of new string
+	ldr	r1, [r1]		@ dereference
+	bl	listStrCpy		@ call helper function to copy the data
+
+	/* Increment size of list */
+	ldr	r5, =llSize		@ load llSize address
+	mov	r6, #1			@ size++
+	str	r6, [r5]		@ store result into llSize
+
+	pop	{lr}			@pop link register
+	pop	{sp}			@stack pointer
+	pop	{r4-r8, r10, r11}	@pop
+	bx	lr			@ branch back
+//////////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////////
 printList:/* Iterate through the list and print the contents of each node */
