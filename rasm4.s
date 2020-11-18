@@ -74,11 +74,11 @@ Menu:
 	bl	intasc32		@ convert
 
 	ldr	r0, =ascBuf		@ load buffer to r0
-	bl	String_Length	@ get string length
+	bl	String_Length		@ get string length
 
 	mov	r1, r0			@ move to r2
 	cmp	r1, #8			@ check length
-	bllt	leadingZeros	@ jump to leading 0s
+	bllt	leadingZeros		@ jump to leading 0s
 
 	ldr	r0, =ascBuf		@ Re-load string
 	bl 	putstring		@ print
@@ -200,24 +200,24 @@ getInput:
 
 	b	getInput		@ if no options were met
 
-@	pop		{lr}		@ pop link register
-@	bx	lr				@ break out
+@	pop	{lr}			@ pop link register
+@	bx	lr			@ break out
 
 
-	/* begin basic LL program */
 
+//////////////////////////////////////////////////////////////////////////////////
 option2B:
 	/* OPEN (CREATE) FILE */
-    ldr	r0, =iFile
-    mov	r1, #0x42   	@ create R/W
-    mov	r2, #02  	 	@ = 600 octal (me)
-    mov	r7, #5    	  	@ open (create)
-    svc	0
+	ldr	r0, =iFile
+	mov	r1, #0x42   		@ create R/W
+	mov	r2, #02  	 	@ = 600 octal (me)
+	mov	r7, #5    	  	@ open (create)
+	svc	0
 
-    cmp	r0, #-1     	@ file descriptor
+	cmp	r0, #-1     		@ file descriptor
 
 
-    mov  r4, r0      	@ save file_descriptor
+	mov  r4, r0      		@ save file_descriptor
 
 nextLineInput:
 
@@ -227,10 +227,10 @@ nextLineInput:
 
 /* read from file */
 	mov	r0, r4			@ file handle (stored from opening file)
-    ldr	r1, =ascBuf		@ move buffer to r1   NEED THIS TO ITERATE ONE BYTE AT A TIME WHILE ALSO ITERATING THROUGH FILE
-    mov	r2, #1			@ length to read
-    mov	r7, #3			@ read
-    svc	0
+	ldr	r1, =ascBuf		@ move buffer to r1   NEED THIS TO ITERATE ONE BYTE AT A TIME WHILE ALSO ITERATING THROUGH FILE
+	mov	r2, #1			@ length to read
+	mov	r7, #3			@ read
+	svc	0
 
 readLoop:
 	@ if LF then break
@@ -242,8 +242,8 @@ readLoop:
 	beq	lineDone		@ break
 
 	mov	r0, r4			@ file handle (stored from opening file)
-    add	r1, #1			@ iterate through buffer
-    svc	0
+	add	r1, #1			@ iterate through buffer
+	svc	0
 
 	b	readLoop		@ loop
 
@@ -254,27 +254,24 @@ lineDone:
 
 
 	/* save string to list */
-	ldr	r0, =head		@ load head pointer
-	ldr	r0, [r0]		@ dereference pointer
-	cmp	r0, #0			@ if head -> NULL
-	bleq	addFirstToList		@ 	then add first node
-	blne	addToList		@		else add reg. node
+	bl	addToList		@ add the ascBuf string to the list
 
 	cmp	r5, #0			@ check if end of file
 	beq	closeFile		@ go to close file
 
-	b	nextLineInput	@ break to next line input
+	b	nextLineInput		@ break to next line input
 
  /* CLOSE FILE */
 closeFile:
-    mov	r7, #6      	@ close
-    svc	0
-    mov	r0, r4      	@ return file_descriptor as error code
+	mov	r7, #6      		@ close
+	svc	0
+	mov	r0, r4      		@ return file_descriptor as error code
  
 	b 	_start			@ back to menu
+//////////////////////////////////////////////////////////////////////////////////
 
 
-
+//////////////////////////////////////////////////////////////////////////////////
 option2A:	
 	/* print input prompt */
 	ldr	r0, =ascPr		@ load string prompt address	
@@ -286,11 +283,7 @@ option2A:
 	bl	getstring		@ call getstring
 
 	/* save string to list */
-	ldr	r0, =head		@ load head pointer
-	ldr	r0, [r0]		@ dereference pointer
-	cmp	r0, #0			@ if head -> NULL
-	bleq	addFirstToList		@ 	then add first node
-	blne	addToList		@		else add reg. node
+	bl	addToList		@ add the ascBuf string to the list
 
 	/* End program if size = 10, else keep adding  */
 	ldr	r0, =llSize		@ load address of llSize
@@ -299,120 +292,72 @@ option2A:
 	bne	_start			@	then keep looping
 	ldr	r4, =head		@ 		else load head into r4
 	b	printList		@		and print list
+//////////////////////////////////////////////////////////////////////////////////
 
 
+//////////////////////////////////////////////////////////////////////////////////
+delNode:/* Fed an index, remove that node, relink the list, and free the memory */
+	push	{r4-r8, r10, r11}	@ push AAPCS
+	push	{sp}                    @ push stack pointer
+	push	{lr}			@ push link register
 
-addToList:	/* Add a new item to the end of the list*/
-	push	{r4-r8, r10, r11}	@push to stack
-	push	{sp}
-	push	{lr}			@push link register
-	/* Find length of memory block to allocate */
+        /* Print deletion prompt and get the index to delete from */
+	ldr	r0, =ascDel		@ load delete prompt
+	bl	putstring		@ print
+        ldr     r0, =ascBuf             @ load buffer 
+        mov     r1, #KBSIZE             @ load buffer size
+        bl      getstring               @ get index from user
+        bl      ascint32                @ convert to an int
 
-	ldr	r0, =ascBuf		@ load new string
+        bl	getNode			@ call getNode helper function
+
+	mov	r8, r0			@ move address into r8
+
 	bl	String_Length		@ find stringlength in bytes
 	mov	r1, r0			@ r1 = strLen
 	mov	r0, #1			@ only 1 unit to be calloc'd
 	add	r1, r1, #5		@ add a word+NULL to strLen
 
-	/* accumulate consumed memory */
+	/* remove from consumed memory */
 	mov	r4, r1			@ copy memconsumed to another register
 	ldr	r5, =mem		@ load mem address
 	ldr	r6, [r5]		@ dereference mem
-	add	r6, r6, r4		@ add current memory to new memory
+	sub	r6, r6, r4		@ add current memory to new memory
 	str	r6, [r5]		@ store result into mem
 
-	push	{r4-r8, r10, r11}	@push to stack
-	push	{sp}
-	push	{lr}			@push link register
-	bl	calloc			@ allocate a block of length strLen+word+NULL
-					@r0 = addr of calloced block
-	pop	{lr}			@pop link register
-	pop	{sp}			@stack pointer
-	pop	{r4-r8, r10, r11}	@pop
 
-	/* dereference tail->next, then save newnode into tail->next & tail */
-	ldr	r1, =tail		@ load address of tail pointer
-	ldr	r1, [r1]		@ dereference for next
-	str	r0, [r1]		@ save calloc'd address into tail->next
-
-	ldr	r1, =tail		@ load address of tail pointer
-	str	r0, [r1]		@ save calloc'd address into tail
-
-	/* Copy string into data section of memory block */
-	ldr	r0, =ascBuf		@ load address of last element
-	ldr	r1, =tail		@ load address of new string
-	ldr	r1, [r1]		@ dereference
-	bl	listStrCpy		@ call helper function to copy the data
-
-	/* Increment size of list */
+	/* Decrement size of list */
 	ldr	r5, =llSize		@ load llSize address
 	ldr	r6, [r5]		@ dereference llSize
-	add	r6, #1			@ size++
+	sub	r6, #1			@ size--
 	str	r6, [r5]		@ store result into llSize
 
-	pop	{lr}			@pop link register
-	pop	{sp}			@stack pointer
-	pop	{r4-r8, r10, r11}	@pop
-	bx	lr			@ branch back
+	pop	{lr}			@ pop link register
+	pop	{sp}			@ pop stack pointer
+	pop	{r4-r8, r10, r11}	@ pop AAPCS
+	bx	lr	                @ branch back to function call
+/////////////////////////////////////////////////////////////////////////////////
 
 
-addFirstToList:	/* Add the first item to the list*/
-	/* Find length of memory block to allocate */
-	push	{r4-r8, r10, r11}	@push to stack
-	push	{sp}
-	push	{lr}			@push link register
-	
-	ldr	r0, =ascBuf		@ load new string
-	bl	String_Length		@ find stringlength in bytes
-	mov	r1, r0			@ r1 = strLen
-	mov	r0, #1			@ only 1 unit to be calloc'd
-	add	r1, r1, #5		@ add a word+NULL to strLen
-
-	/* accumulate consumed memory */
-	mov	r4, r1			@ copy memconsumed to another register
-	ldr	r5, =mem		@ load mem address
-	ldr	r6, [r5]		@ dereference mem
-	add	r6, r6, r4		@ add current memory to new memory
-	str	r6, [r5]		@ store result into mem
+/////////////////////////////////////////////////////////////////////////////////
+replaceNode:/* calls delete and add node in one spot to replace a node */
+	push	{r4-r8, r10, r11}	@ push AAPCS
+	push	{sp}                    @ push stack pointer
+	push	{lr}			@ push link register
 
 
-	push	{r4-r8, r10, r11}	@push to stack
-	push	{sp}
-	push	{lr}			@push link register
-	bl	calloc			@ allocate a block of length strLen+word+NULL
-					@r0 = addr of calloced block
-	pop	{lr}			@pop link register
-	pop	{sp}			@stack pointer
-	pop	{r4-r8, r10, r11}	@pop
+
+	pop	{lr}			@ pop link register
+	pop	{sp}			@ pop stack pointer
+	pop	{r4-r8, r10, r11}	@ pop AAPCS
+	bx	lr	                @ branch back to function call
+/////////////////////////////////////////////////////////////////////////////////
 
 
-	/* Link head and tail to the first node */
-	ldr	r1, =head		@ load address of head pointer
-	str	r0, [r1]		@ save calloc'd address into head
-	ldr	r1, =tail		@ load address of tail pointer
-	str	r0, [r1]		@ save calloc'd address into tail
-
-	/* Copy string into data section of memory block */
-	ldr	r0, =ascBuf		@ load address of last element
-	ldr	r1, =tail		@ load address of new string
-	ldr	r1, [r1]		@ dereference
-	bl	listStrCpy		@ call helper function to copy the data
-
-	/* Increment size of list */
-	ldr	r5, =llSize		@ load llSize address
-@	ldr	r6, [r5]		@ dereference llSize
-	mov	r6, #1			@ size++
-	str	r6, [r5]		@ store result into llSize
-
-	pop	{lr}			@pop link register
-	pop	{sp}			@stack pointer
-	pop	{r4-r8, r10, r11}	@pop
-	bx	lr			@ branch back
-
-
+/////////////////////////////////////////////////////////////////////////////////
 printList:/* Iterate through the list and print the contents of each node */
 	ldr	r4, =head		@ load head
-printLoop:
+printLoop:/* For loop jump point */
 	ldr	r4, [r4]		@ then iterate to next item
 	mov	r5, r4			@ copy address to r5
 	add	r5, #4			@ shift address to data section
@@ -426,61 +371,55 @@ printLoop:
 					@		else continue looping
 	b	printLoop		@ and continue printing
 
-pause:
+pause: /* Dummy getstring to pause the output */
 	ldr	r0, =ascBuf		@ load dummy
 	mov	r1, #KBSIZE		@ kbsize
-	bl getstring		@ pause
+	bl getstring			@ pause
 	b	_start
+//////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////
 leadingZeros:/* loop for leading zeroes */
 
-	push	{lr}		@ push link register
+	push	{lr}			@ push link register
 
-	ldr r0, =cZero		@ character '0'
+	ldr r0, =cZero			@ character '0'
 	bl	putch			@ print char '0'
 
 	add	r1, #1			@ increment
 	cmp	r1, #8			@ check leading zeros
-	bllt	leadingZeros	@ loop
+	bllt	leadingZeros		@ loop
 	
-	pop 	{lr}		@ pop link register
-	bx	lr				@ break out
+	pop 	{lr}			@ pop link register
+	bx	lr			@ break out
+//////////////////////////////////////////////////////////////////////////////////
 
-
+//////////////////////////////////////////////////////////////////////////////////
 end:/* finish program and terminate */
 	ldr	r0, =szEnd		@ load newlines
-	bl putstring		@ print
+	bl putstring			@ print
 	
 	mov	r0, #0			@ status
 	mov	r7, #1			@ service code
-	svc	0				@ service call to linux
+	svc	0			@ service call to linux
 	
 	.end
-
+//////////////////////////////////////////////////////////////////////////////////
 /*
 Branches we need:
 Load from file
 	Read line from file
 		addToList
-
 Read from keyboard
 	addToList
-
 printList
-
 deleteAtIndex
-
 editAtIndex
-
 	nod@index-1, save next
 	node@index, save next address
-
    	deleteAtIndex
   	addToList
-
 findString
 	iterate through list, comparing data to input string
 	print each match
-
-
 */
