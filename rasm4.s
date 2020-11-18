@@ -164,7 +164,7 @@ getInput:
 	bl	string_equalsIgnoreCase		@ compare strings
 
 	cmp	r0, #1			@ check if true
-@	beq	option3			@ break option 3
+	beq	delNode			@ break option 3
 
 	/* option 4 */
 	ldr	r0, =ascBuf		@ load buffer
@@ -287,7 +287,11 @@ option2A:
 	bl	getstring		@ call getstring
 
 	/* save string to list */
-	bl	addToList		@ add the ascBuf string to the list
+	ldr	r0, =head		@ load head pointer
+	ldr	r0, [r0]		@ dereference pointer
+	cmp	r0, #0			@ if head -> NULL
+	bleq	addFirstToList		@ 	then add first node
+	blne	addNextToList		@		else add reg. node
 
 	/* End program if size = 10, else keep adding  */
 	ldr	r0, =llSize		@ load address of llSize
@@ -399,8 +403,9 @@ endGetNode:/* Restore registers and branch back to function call */
 ///////////////////////////////////////////////////////////////////////////////
 
 
-///////////////////////////////////////////////////////////////////////////////
-addToList:/* Add a node */
+////////////////////////////////////////////////////////////////////////////////*
+//addToList:/* Add a node *
+/*
 	push	{r4-r8, r10, r11}	@push to stack
 	push	{sp}
 	push	{lr}			@push link register
@@ -410,9 +415,13 @@ addToList:/* Add a node */
 	cmp	r0, #0			@ if head -> NULL
 	bleq	addFirstToList		@ 	then add first node
 	blne	addToList		@		else add reg. node
-
+*/
 addNextToList:	/* Add a new item to the end of the list*/
 	/* Find length of memory block to allocate */
+	push	{r4-r8, r10, r11}	@push to stack
+	push	{sp}
+	push	{lr}			@push link register
+
 	ldr	r0, =ascBuf		@ load new string
 	bl	String_Length		@ find stringlength in bytes
 	mov	r1, r0			@ r1 = strLen
@@ -462,6 +471,9 @@ addNextToList:	/* Add a new item to the end of the list*/
 
 addFirstToList:	/* Add the first item to the list*/
 	/* Find length of memory block to allocate */
+	push	{r4-r8, r10, r11}	@push to stack
+	push	{sp}
+	push	{lr}			@push link register
 
 	ldr	r0, =ascBuf		@ load new string
 	bl	String_Length		@ find stringlength in bytes
