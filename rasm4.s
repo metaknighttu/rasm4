@@ -286,13 +286,13 @@ option2A:
 	mov	r1, #KBSIZE		@ load string buffer size
 	bl	getstring		@ call getstring
 
-	/* add 0a to end of ascbuf */
-	bl	string_length	@ get length
-	ldr r1, =ascBuf		@ load string to r1
-	add	r1, r0			@ go to end of string
-	mov	r0, #10			@ put 0x0a (enter) to r0
-	strb	r0, [r1]	@ store [cr] to end of ascBuf
-	ldr	r0, =ascBuf		@ put ascBuf back to r0
+	@ /* add 0a to end of ascbuf */
+	@ bl	string_length	@ get length
+	@ ldr r1, =ascBuf		@ load string to r1
+	@ add	r1, r0			@ go to end of string
+	@ mov	r0, #10			@ put 0x0a (enter) to r0
+	@ strb	r0, [r1]	@ store [cr] to end of ascBuf
+	@ ldr	r0, =ascBuf		@ put ascBuf back to r0
 
 	/* save string to list */
 	ldr	r0, =head		@ load head pointer
@@ -634,32 +634,10 @@ end:/* finish program and terminate */
 	.end
 
 /*
-Branches we need:
-Load from file
-	Read line from file
-		addToList
-
-Read from keyboard
-	addToList
-
-printList
-
-deleteAtIndex
-
-editAtIndex
-
-	nod@index-1, save next
-	node@index, save next address
-
-   	deleteAtIndex
-  	addToList
 
 findString
 	iterate through list, comparing data to input string
 	print each match
-
-
-
 
 2A ISN"T WORKING QUITE RIGHT
 */
