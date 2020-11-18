@@ -301,57 +301,60 @@ option2A:
 	b	printList		@		and print list
 
 delNode:/* Fed an index, remove that node, relink the list, and free the memory */
-	push	{r4-r8, r10, r11}	@ push AAPCS
-	push	{sp}                    @ push stack pointer
-	push	{lr}			@ push link register
 
-        /* Print deletion prompt and get the index to delete from */
-	ldr	r0, =ascDel		@ load delete prompt
-	bl	putstring		@ print
-        ldr     r0, =ascBuf             @ load buffer 
-        mov     r1, #KBSIZE             @ load buffer size
-        bl      getstring               @ get index from user
-        bl      ascint32                @ convert to an int
+ 	push	{r4-r8, r10, r11}	@ push AAPCS
+ 	push	{sp}                    @ push stack pointer
+ 	push	{lr}			@ push link register
 
-        bl	getNode			@ call getNode helper function
+         /* Print deletion prompt and get the index to delete from */
+ 	ldr	r0, =ascDel		@ load delete prompt
+ 	bl	putstring		@ print
+    ldr     r0, =ascBuf             @ load buffer 
+    mov     r1, #KBSIZE             @ load buffer size
+    bl      getstring               @ get index from user
+    bl      ascint32                @ convert to an int
 
-	mov	r8, r0			@ move address into r8
-	ldr	r9, [r8]		@ dereference for next node
+    bl	getNode			@ call getNode helper function
 
-	/* find string's length */
-	ldr	r10, [r9, #4]		@ find string for purposes
-	mov	r0, r10			@ load string addr so we can see its length
+ 	mov	r8, r0			@ move address into r8
+ 	ldr	r9, [r8]		@ dereference for next node
 
-	bl	String_Length		@ find stringlength in bytes
-	mov	r1, r0			@ r1 = strLen
-	mov	r0, #1			@ only 1 unit to be calloc'd
-	add	r1, r1, #5		@ add a word+NULL to strLen
+@ 	/* find string's length */
+ 	mov	r0, r8			@ load string addr so we can see its length
+	
+ 	add	r0, #4
 
-	/* remove from consumed memory */
-	mov	r4, r1			@ copy memconsumed to another register
-	ldr	r5, =mem		@ load mem address
-	ldr	r6, [r5]		@ dereference mem
-	sub	r6, r6, r4		@ add current memory to new memory
-	str	r6, [r5]		@ store result into mem
+ 	bl	string_length		@ find stringlength in bytes
+ 	mov	r1, r0			@ r1 = strLen
+ 	mov	r0, #1			@ only 1 unit to be calloc'd
+ 	add	r1, r1, #5		@ add a word+NULL to strLen
 
-	/* delete node and relink the list */
+ 	/* remove from consumed memory */
+ 	mov	r4, r1			@ copy memconsumed to another register
+ 	ldr	r5, =mem		@ load mem address
+ 	ldr	r6, [r5]		@ dereference mem
+ 	sub	r6, r6, r4		@ add current memory to new memory
+ 	str	r6, [r5]		@ store result into mem
+
+ 	/* delete node and relink the list */
+ 	mov	r0, r9			@ load dereferenced node address 	ADDRESS TO BE DELETED
+
 	ldr	r9, [r9]		@ dereference? maybe this is a bad move
-	str	r9, [r8]		@ store next node address to relink list
+ 	str	r9, [r8]		@ store next node address to relink list
 
-	mov	r0, r9			@ load dereferenced node address
-	bl	free			@ free the memory, deleting the node
+ 	bl	free			@ free the memory, deleting the node
 
-	/* Decrement size of list */
-	ldr	r5, =llSize		@ load llSize address
-	ldr	r6, [r5]		@ dereference llSize
-	sub	r6, #1			@ size--
-	str	r6, [r5]		@ store result into llSize
+ 	/* Decrement size of list */
+ 	ldr	r5, =llSize		@ load llSize address
+ 	ldr	r6, [r5]		@ dereference llSize
+ 	sub	r6, #1			@ size--
+ 	str	r6, [r5]		@ store result into llSize
 
-	pop	{lr}			@ pop link register
-	pop	{sp}			@ pop stack pointer
-	pop	{r4-r8, r10, r11}	@ pop AAPCS
-	bx	lr	                @ branch back to function call
-/////////////////////////////////////////////////////////////////////////////////
+ 	pop	{lr}			@ pop link register
+ 	pop	{sp}			@ pop stack pointer
+ 	pop	{r4-r8, r10, r11}	@ pop AAPCS
+ 	b	_start	                @ branch back to function call xx menu
+@ /////////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -388,7 +391,7 @@ getNodeLoop:/* Loop to iterate through list */
         ldr     r6, [r6]                @ dereference (move 1 node down the list)
         add     r5, #1                  @ i++
         cmp     r4, r5                  @ if i != index
-        bne     getNodeLoop             @       then keep iterating down the list
+		bne     getNodeLoop             @       then keep iterating down the list
         mov     r0, r6                  @               else we have the item and we 
                                         @               return it in r0
 endGetNode:/* Restore registers and branch back to function call */
@@ -580,4 +583,7 @@ findString
 	print each match
 
 
+
+
+2A ISN"T WORKING QUITE RIGHT
 */
